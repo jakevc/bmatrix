@@ -3,16 +3,11 @@ use crossterm::{
     execute,
     style::{Color, Print, ResetColor, SetForegroundColor},
     terminal::{self, Clear, ClearType},
-    Result,
+    Result, queue,
 };
-use ctrlc;
 use rand::prelude::*;
 use scopeguard::defer;
-use std::collections::HashSet;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::{collections::HashSet, io::{Write}};
 use std::thread;
 use std::time::Duration;
 
@@ -60,17 +55,13 @@ fn is_inside_bitcoin_symbol(
 }
 
 fn print_green_matrix() -> Result<()> {
+
+    let mut stdout = std::io::stdout();
+
     // get termsize to adjust matrix
     let termsize = terminal::size()?;
     let twidth = termsize.0 as i32;
     let theight = termsize.1 as i32;
-
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
-    ctrlc::set_handler(move || {
-        r.store(false, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl+C handler");
 
     let matrix_characters: Vec<char> = (33..127).map(|c: u8| c as char).collect();
     let mut rng = rand::thread_rng();
@@ -113,23 +104,23 @@ fn print_green_matrix() -> Result<()> {
                     ))
                 {
                     let random_char = matrix_characters[rng.gen_range(0..matrix_characters.len())];
-                    execute!(
-                        std::io::stdout(),
+                    queue!(
+                        stdout,
                         MoveTo(col as u16 * 2, row as u16),
                         Print(random_char)
                     )?;
                 } else {
-                    execute!(
-                        std::io::stdout(),
+                    queue!(
+                        stdout,
                         MoveTo(col as u16 * 2, row as u16),
-                        Print(' ')
+                        Print(' '.to_string())
                     )?;
                 }
             }
+            stdout.flush()?;
         }
-
         // Adjust the sleep duration to control the matrix update speed
-        thread::sleep(Duration::from_millis(200));
+        thread::sleep(Duration::from_millis(50));
     }
 }
 
